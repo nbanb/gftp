@@ -352,6 +352,27 @@ static void _gftp_ssl_thread_setup (void)
   CRYPTO_set_dynlock_destroy_callback (_gftp_ssl_destroy_dyn_mutex);
 } 
 
+/****************************************************************************/
+/* 20250417 Nicolas Baranger */
+/* Adding OpenSSL SSLKEYLOGFILE support */
+/****************************************************************************/
+static void gftp_ssl_keylog_callback(const SSL *ssl, const char *line) 
+{
+  const char *gftp_keylog_file = getenv("SSLKEYLOGFILE");
+  if (!gftp_keylog_file)
+    return;
+
+  FILE *gftp_fp = fopen(gftp_keylog_file, "a");
+  if (!gftp_fp)
+    return;
+
+  fprintf(gftp_fp, "%s\n", line);
+  fclose(gftp_fp);
+}
+/***************************************************************************/
+/* END ADDITIONS  */
+/****************************************************************************/
+
 
 int gftp_ssl_startup (gftp_request * request)
 {
@@ -393,7 +414,10 @@ int gftp_ssl_startup (gftp_request * request)
                                  _("Error loading default SSL certificates\n"));
       return (GFTP_EFATAL);
     }
-
+/* enable SSLKEYLOGFILE if OpenSSL version > 1.1.1*/  
+#if OPENSSL_VERSION_NUMBER >= 0x10101000L
+  SSL_CTX_set_keylog_callback(ctx, gftp_ssl_keylog_callback);
+#endif 
   SSL_CTX_set_verify (ctx, SSL_VERIFY_PEER, gftp_ssl_verify_callback);
   SSL_CTX_set_verify_depth (ctx, 9);
 
